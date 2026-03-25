@@ -1,7 +1,7 @@
 from pathlib import Path
+import re
 
 from docx import Document
-from docx.enum.text import WD_BREAK
 from docx.shared import Pt
 
 
@@ -16,6 +16,19 @@ def flush_paragraph(doc: Document, buffer: list[str]) -> None:
     if text:
         doc.add_paragraph(text)
     buffer.clear()
+
+
+def add_inline_bold_paragraph(doc: Document, text: str) -> None:
+    paragraph = doc.add_paragraph()
+    parts = re.split(r"(\*\*.*?\*\*)", text)
+    for part in parts:
+        if not part:
+            continue
+        if part.startswith("**") and part.endswith("**"):
+            run = paragraph.add_run(part[2:-2])
+            run.bold = True
+        else:
+            paragraph.add_run(part)
 
 
 def main() -> None:
@@ -66,25 +79,16 @@ def main() -> None:
             doc.add_paragraph(stripped[2:].strip(), style="List Bullet")
             continue
 
-        if stripped.startswith("**") and stripped.endswith("**"):
+        if stripped.startswith("**") and stripped.endswith("**") and stripped.count("**") == 2:
             flush_paragraph(doc, paragraph_buffer)
             p = doc.add_paragraph()
             run = p.add_run(stripped.strip("*"))
             run.bold = True
             continue
 
-        if "**" in stripped and stripped.endswith("  "):
+        if "**" in stripped:
             flush_paragraph(doc, paragraph_buffer)
-            p = doc.add_paragraph()
-            segments = stripped.split("**")
-            for index, segment in enumerate(segments):
-                if not segment:
-                    continue
-                run = p.add_run(segment.strip())
-                if index % 2 == 1:
-                    run.bold = True
-                if index < len(segments) - 1:
-                    run.add_break(WD_BREAK.LINE)
+            add_inline_bold_paragraph(doc, stripped.replace("  ", " ").strip())
             continue
 
         paragraph_buffer.append(stripped)
